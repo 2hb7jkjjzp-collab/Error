@@ -36,7 +36,7 @@ def run_web_server():
 # =========================
 
 client = OpenAI(
-    api_key=os.environ["DEEPSEEK_API_KEY"],
+    api_key=os.environ.get("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com",
 )
 
@@ -60,7 +60,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
 
         response = client.chat.completions.create(
-            model="deepseek-chat",
+            model="deepseek-v4-pro",
             messages=[
                 {
                     "role": "system",
@@ -76,6 +76,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "content": user_message,
                 },
             ],
+            stream=False,
         )
 
         ai_reply = response.choices[0].message.content
@@ -84,10 +85,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
 
-        print(f"DeepSeek Error: {e}")
+        error_message = str(e)
+
+        print("DEEPSEEK ERROR:", error_message)
 
         await update.message.reply_text(
-            "صار خطأ أثناء الاتصال بـ DeepSeek."
+            "❌ حصل خطأ من DeepSeek:\n\n"
+            f"{error_message[:3500]}"
         )
 
 
@@ -97,7 +101,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
 
-    # تشغيل Web Server في الخلفية
+    # تشغيل Web Server الخاص بـ Render
     threading.Thread(
         target=run_web_server,
         daemon=True
