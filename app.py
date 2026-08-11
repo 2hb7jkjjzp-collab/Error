@@ -1,3 +1,37 @@
+import os
+import threading
+import asyncio
+from flask import Flask
+from openai import OpenAI
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
+# ============================================================
+# RENDER WEB SERVER
+# ============================================================
+web_app = Flask(__name__)
+@web_app.route("/")
+def home():
+    return "GPC Master Engine is running!"
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    web_app.run(host="0.0.0.0", port=port)
+# ============================================================
+# DEEPSEEK
+# ============================================================
+client = OpenAI(
+    api_key=os.environ.get("DEEPSEEK_API_KEY"),
+    base_url="https://api.deepseek.com",
+)
+# ============================================================
+# GPC MASTER SYSTEM PROMPT
+# ============================================================
+SYSTEM_PROMPT = r"""
 GPC MASTER ENGINE — CRONUS ZEN EXPERT SYSTEM
 ============================================================
 IDENTITY
@@ -144,8 +178,6 @@ init {
     current_profile = 0;
 }
 Use init for initialization when required.
-Do not unnecessarily initialize every configuration
-variable if it already has a valid static value.
 ------------------------------------------------------------
 MAIN
 ------------------------------------------------------------
@@ -382,15 +414,6 @@ ANTI-RECOIL ENGINE
 ============================================================
 Anti-Recoil generally modifies the aiming stick while
 the fire input is active.
-Concept:
-if(get_val(FIRE_BUTTON)) {
-    int current_y = get_val(STICK_2_Y);
-    int new_y = current_y + recoil_value;
-    set_val(STICK_2_Y, new_y);
-}
-The correct sign depends on the game's coordinate direction
-and implementation.
-Never blindly assume that positive means up or down.
 Consider:
 - Current stick input
 - Vertical compensation
@@ -414,16 +437,8 @@ RELEASE
 WAIT
 ↓
 REPEAT
-Example:
-combo RapidFire {
-    set_val(FIRE_BUTTON, 100);
-    wait(40);
-    set_val(FIRE_BUTTON, 0);
-    wait(40);
-}
 The system must stop correctly when the physical trigger
 is released.
-Do not allow Rapid Fire to remain active after release.
 ============================================================
 BURST FIRE ENGINE
 ============================================================
@@ -493,7 +508,7 @@ Activate DEBUG MODE when the user says:
 "there is an error"
 "nothing happens"
 "it stopped working"
-Analyze:
+Analyze efficiently:
 1. Syntax
 2. Definitions
 3. Variable declarations
@@ -516,8 +531,8 @@ CAUSE
 SOLUTION
 →
 COMPLETE CORRECTED SCRIPT
-Do not spend excessive tokens on an audit unless the user
-specifically asks for a detailed audit.
+Do not perform a long audit unless the user specifically
+asks for one.
 ============================================================
 CODE VERIFICATION
 ============================================================
@@ -544,8 +559,6 @@ Do NOT automatically tell the user:
 "FULLY COMPATIBLE"
 unless there is sufficient confidence.
 Never invent missing API documentation.
-If uncertain about a platform-specific feature, clearly
-identify the uncertainty.
 ============================================================
 OPTIMIZATION
 ============================================================
@@ -561,34 +574,6 @@ When asked to improve a script, prioritize:
 9. Maintainability
 Do not rewrite working code without a reason.
 Do not remove functionality unless requested.
-============================================================
-CONFIGURATION DESIGN
-============================================================
-For large scripts, put important user settings near
-the beginning.
-Recommended structure:
-CONFIGURATION
-INPUT DEFINITIONS
-PROFILE SETTINGS
-GLOBAL VARIABLES
-MAIN
-COMBOS
-FUNCTIONS
-The user should be able to modify important values
-without searching through the entire script.
-============================================================
-ERROR HANDLING
-============================================================
-If the user's idea contains a technical mistake:
-Do not blindly agree.
-Explain briefly:
-PROBLEM:
-X
-REASON:
-Y
-CORRECT APPROACH:
-Z
-Then implement the correct solution.
 ============================================================
 RESPONSE STYLE
 ============================================================
@@ -660,3 +645,175 @@ CHECK GPC STRUCTURE
 OPTIMIZE
 →
 RETURN COMPLETE RESULT
+"""
+# ============================================================
+# CONVERSATION MEMORY
+# ============================================================
+conversation_history = {}
+MAX_HISTORY_MESSAGES = 12
+# ============================================================
+# START COMMAND
+# ============================================================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    conversation_history[user_id] = []
+    await update.message.reply_text(
+        "GPC Master Engine is ready.\n\n"
+        "Target: Cronus Zen GPC\n"
+        "Code: English\n\n"
+        "Send your GPC request."
+    )
+# ============================================================
+# ANIMATED WAITING MESSAGE
+# ============================================================
+async def animate_status(message):
+    frames = [
+        "⏳ جاري تحليل طلبك...",
+        "⌛ جاري تحليل طلبك...",
+        "⏳ جاري تحليل طلبك...",
+        "⌛ جاري تحليل طلبك...",
+    ]
+    index = 0
+    try:
+        while True:
+            await message.edit_text(
+                frames[index % len(frames)]
+            )
+            index += 1
+            await asyncio.sleep(0.8)
+    except asyncio.CancelledError:
+        return
+    except Exception:
+        return
+# ============================================================
+# MESSAGE HANDLER
+# ============================================================
+async def handle_message(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+    user_id = update.effective_user.id
+    user_message = update.message.text
+    if user_id not in conversation_history:
+        conversation_history[user_id] = []
+    history = conversation_history[user_id]
+    history.append(
+        {
+            "role": "user",
+            "content": user_message,
+        }
+    )
+    history = history[-MAX_HISTORY_MESSAGES:]
+    conversation_history[user_id] = history
+    status_message = await update.message.reply_text(
+        "⏳ جاري تحليل طلبك..."
+    )
+    # Start animated status
+    animation_task = asyncio.create_task(
+        animate_status(status_message)
+    )
+    try:
+        messages = [
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT,
+            }
+        ]
+        messages.extend(history)
+        # DeepSeek API call
+        response = await asyncio.to_thread(
+            client.chat.completions.create,
+            model="deepseek-v4-pro",
+            messages=messages,
+            stream=False,
+        )
+        ai_reply = response.choices[0].message.content
+        history.append(
+            {
+                "role": "assistant",
+                "content": ai_reply,
+            }
+        )
+        conversation_history[user_id] = (
+            history[-MAX_HISTORY_MESSAGES:]
+        )
+        # Stop animation
+        animation_task.cancel()
+        try:
+            await animation_task
+        except asyncio.CancelledError:
+            pass
+        # Delete waiting message
+        try:
+            await status_message.delete()
+        except Exception:
+            pass
+        # Telegram message limit
+        max_length = 4000
+        for i in range(
+            0,
+            len(ai_reply),
+            max_length
+        ):
+            await update.message.reply_text(
+                ai_reply[i:i + max_length]
+            )
+    except Exception as e:
+        error_message = str(e)
+        print(
+            "DEEPSEEK ERROR:",
+            error_message
+        )
+        # Stop animation
+        animation_task.cancel()
+        try:
+            await animation_task
+        except asyncio.CancelledError:
+            pass
+        try:
+            await status_message.edit_text(
+                "❌ حصل خطأ من DeepSeek:\n\n"
+                f"{error_message[:3500]}"
+            )
+        except Exception:
+            await update.message.reply_text(
+                "❌ حصل خطأ من DeepSeek:\n\n"
+                f"{error_message[:3500]}"
+            )
+# ============================================================
+# MAIN
+# ============================================================
+def main():
+    # Render Web Server
+    threading.Thread(
+        target=run_web_server,
+        daemon=True
+    ).start()
+    # Telegram Bot Token
+    bot_token = os.environ["BOT_TOKEN"]
+    application = (
+        Application.builder()
+        .token(bot_token)
+        .build()
+    )
+    application.add_handler(
+        CommandHandler(
+            "start",
+            start
+        )
+    )
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            handle_message
+        )
+    )
+    print(
+        "GPC Master Engine is running..."
+    )
+    application.run_polling()
+# ============================================================
+# START APPLICATION
+# ============================================================
+if __name__ == "__main__":
+    main()
