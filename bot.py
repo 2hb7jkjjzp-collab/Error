@@ -1,5 +1,13 @@
+import os
+
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -19,14 +27,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
-    BOT_TOKEN = "ضع_توكن_البوت_هنا"
+    bot_token = os.environ["BOT_TOKEN"]
 
-    application = Application.builder().token(BOT_TOKEN).build()
-
-    application.add_handler(CommandHandler("start", start))
+    application = Application.builder().token(bot_token).build()
 
     application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
+        CommandHandler("start", start)
+    )
+
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            handle_message
+        )
     )
 
     print("Bot is running...")
