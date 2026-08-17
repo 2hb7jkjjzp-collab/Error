@@ -1,0 +1,23 @@
+name: Sarrah FormSubmit Setup
+
+on:
+  push:
+    branches: [gh-pages]
+    paths:
+      - '.github/workflows/formsubmit-setup.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger FormSubmit confirmation
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H 'Accept: application/json' \
+            -H 'Content-Type: application/json' \
+            'https://formsubmit.co/ajax/meshalalayadi@gmail.com' \
+            --data '{"email":"meshalalayadi+sarrah-setup@gmail.com","_subject":"صرّة — تفعيل التسجيل المبكر","_captcha":"false","source":"sarrah-form-setup"}'
