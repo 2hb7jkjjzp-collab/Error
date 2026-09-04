@@ -299,11 +299,26 @@ export class LeverConnector implements ATSConnector {
   }
 
   async submit(page: Page): Promise<StepResult> {
-    const submitButton = await page.$('button[type="submit"]') ?? (await page.$("button:has-text('Submit')"));
+    // page.$() (and Playwright's plain querySelector-style lookups) return
+    // the FIRST DOM match regardless of visibility — Lever's apply form has
+    // more than one button[type="submit"] in the DOM (this connector's own
+    // logs showed clicks consistently timing out with "element is not
+    // visible" for the full 30s, ruling out a loading-state race), so this
+    // was very likely grabbing a hidden duplicate. Scan all matches and
+    // click the first one that's actually visible.
+    const candidates = await page.locator("button[type='submit'], button:has-text('Submit')").all();
+    let submitButton = null;
+    for (const candidate of candidates) {
+      if (await candidate.isVisible().catch(() => false)) {
+        submitButton = candidate;
+        break;
+      }
+    }
     if (!submitButton) {
-      throw new MeshalError(ErrorCode.ENGINEERING_ERROR, "No submit button found on Lever apply form.");
+      throw new MeshalError(ErrorCode.ENGINEERING_ERROR, "No visible submit button found on Lever apply form.");
     }
     try {
+      await submitButton.scrollIntoViewIfNeeded().catch(() => undefined);
       await Promise.all([
         page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => undefined),
         submitButton.click(),
