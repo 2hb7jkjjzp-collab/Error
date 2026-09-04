@@ -2,6 +2,19 @@ import pg from "pg";
 
 let pool: pg.Pool | null = null;
 
+function resolveSsl(connectionString: string): pg.PoolConfig["ssl"] {
+  // Only enable SSL when the connection string or an explicit env var asks
+  // for it. Self-hosted Postgres (docker-compose locally, or a plain
+  // postgres:16-alpine service on Railway) does not speak SSL at all, and
+  // guessing "not localhost => SSL" breaks against exactly that setup.
+  // Managed providers that require SSL (Supabase, RDS, etc.) encode it in
+  // the connection string (?sslmode=require) or should set PGSSL=true.
+  if (process.env.PGSSL === "true") return { rejectUnauthorized: false };
+  if (process.env.PGSSL === "false") return false;
+  if (/sslmode=require|ssl=true/i.test(connectionString)) return { rejectUnauthorized: false };
+  return false;
+}
+
 export function getPool(): pg.Pool {
   if (!pool) {
     const connectionString = process.env.DATABASE_URL;
@@ -10,7 +23,7 @@ export function getPool(): pg.Pool {
     }
     pool = new pg.Pool({
       connectionString,
-      ssl: connectionString.includes("localhost") ? false : { rejectUnauthorized: false },
+      ssl: resolveSsl(connectionString),
       max: Number(process.env.PG_POOL_MAX ?? 10),
     });
   }
