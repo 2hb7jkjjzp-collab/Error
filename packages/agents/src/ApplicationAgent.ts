@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { jobsDb, applicationsDb, candidateDb } from "@meshal/database";
 import { JobState, QueueName, ErrorCode, MeshalError } from "@meshal/shared";
@@ -38,6 +38,11 @@ export class ApplicationAgent extends BaseAgent {
     const applicationUrl = job.original_application_url ?? job.source_url;
     const connector = this.router.route(applicationUrl); // throws ATS_UNSUPPORTED if unroutable
 
+    const resumeLocalPath = await this.materializeResume(candidate.id);
+    if (!resumeLocalPath) {
+      return { error: { code: ErrorCode.REQUIRED_UNKNOWN_FIELD, message: "No résumé uploaded for the candidate profile yet." } };
+    }
+
     const applicationId = await applicationsDb.createApplication({
       job_id: job.job_id,
       candidate_profile_id: candidate.id,
@@ -57,7 +62,7 @@ export class ApplicationAgent extends BaseAgent {
       jobUrl: applicationUrl,
       externalJobId: job.external_job_id,
       atsTenant: job.ats_tenant,
-      candidate,
+      candidate: { ...candidate, resume_path: resumeLocalPath },
       knownAnswers: await candidateDb.listCandidateAnswers(candidate.id),
       applicationId,
     };
@@ -146,5 +151,20 @@ export class ApplicationAgent extends BaseAgent {
       await connector.close(page);
       await context.close().catch(() => undefined);
     }
+  }
+
+  /**
+   * Writes the candidate's résumé bytes (stored centrally in Postgres) to a
+   * local temp file this worker instance can hand to Playwright's file
+   * input. Returns null if no résumé has been uploaded yet.
+   */
+  private async materializeResume(candidateProfileId: string): Promise<string | null> {
+    const blob = await candidateDb.getResumeBlob(candidateProfileId);
+    if (!blob) return null;
+    const dir = join(process.env.STORAGE_DIR ?? "./storage", "resume-tmp");
+    mkdirSync(dir, { recursive: true });
+    const path = join(dir, `${candidateProfileId}-${blob.filename}`);
+    writeFileSync(path, blob.data);
+    return path;
   }
 }

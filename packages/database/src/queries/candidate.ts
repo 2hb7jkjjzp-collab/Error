@@ -1,9 +1,42 @@
 import { getPool } from "../pool.js";
 import type { CandidateProfile, CandidateAnswer } from "@meshal/shared";
 
+const PROFILE_COLUMNS = `
+  id, legal_name, first_name, middle_name, last_name, preferred_name, email, phone, nationality,
+  date_of_birth, gender, address, city, country, postal_code, linkedin_url, portfolio_url,
+  current_employer, current_role, years_experience, current_salary, expected_salary, notice_period,
+  education, certifications, languages, skills, work_history, resume_path, resume_filename, updated_at, created_at
+`;
+
+/**
+ * Deliberately excludes resume_data (bytea, can be several MB) — API
+ * responses and general reads should stay lean. Use getResumeBlob() when
+ * the actual file bytes are needed (only the Application Agent does).
+ */
 export async function getActiveCandidateProfile(): Promise<(CandidateProfile & { id: string }) | null> {
-  const { rows } = await getPool().query("SELECT * FROM candidate_profiles ORDER BY updated_at DESC LIMIT 1");
+  const { rows } = await getPool().query(`SELECT ${PROFILE_COLUMNS} FROM candidate_profiles ORDER BY updated_at DESC LIMIT 1`);
   return (rows[0] as (CandidateProfile & { id: string })) ?? null;
+}
+
+export interface ResumeBlob {
+  data: Buffer;
+  filename: string;
+}
+
+export async function getResumeBlob(candidateProfileId: string): Promise<ResumeBlob | null> {
+  const { rows } = await getPool().query<{ resume_data: Buffer | null; resume_filename: string | null }>(
+    "SELECT resume_data, resume_filename FROM candidate_profiles WHERE id = $1",
+    [candidateProfileId]
+  );
+  if (!rows[0]?.resume_data) return null;
+  return { data: rows[0].resume_data, filename: rows[0].resume_filename ?? "cv.pdf" };
+}
+
+export async function setResumeBlob(candidateProfileId: string, data: Buffer, filename: string): Promise<void> {
+  await getPool().query(
+    "UPDATE candidate_profiles SET resume_data = $2, resume_filename = $3, resume_path = $3, updated_at = now() WHERE id = $1",
+    [candidateProfileId, data, filename]
+  );
 }
 
 export async function upsertCandidateProfile(id: string | null, profile: CandidateProfile): Promise<string> {

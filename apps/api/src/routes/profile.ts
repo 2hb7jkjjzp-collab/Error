@@ -1,7 +1,5 @@
 import { Router } from "express";
 import multer from "multer";
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
 import { candidateDb } from "@meshal/database";
 import type { CandidateProfile } from "@meshal/shared";
 
@@ -55,15 +53,12 @@ profileRouter.post("/profile/answers", async (req, res) => {
   res.json({ ok: true, id });
 });
 
+// Résumé bytes are stored in Postgres (candidate_profiles.resume_data), not
+// on local disk: the API and worker are separate Railway services with
+// independent volumes, so a file written to the API's disk would not be
+// visible to the worker's browser automation. See migrations/003_resume_storage.sql.
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      const dir = process.env.RESUME_PATH ? join(process.env.RESUME_PATH, "..") : "./storage/resume";
-      mkdirSync(dir, { recursive: true });
-      cb(null, dir);
-    },
-    filename: (_req, file, cb) => cb(null, `cv${extname(file.originalname)}`),
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = [".pdf", ".doc", ".docx"];
@@ -83,10 +78,11 @@ resumeRouter.post("/resume", upload.single("resume"), async (req, res) => {
     res.status(400).json({ error: "NO_FILE", message: "Upload a PDF/DOC/DOCX resume as 'resume'." });
     return;
   }
-  const resumePath = req.file.path;
   const existing = await candidateDb.getActiveCandidateProfile();
-  if (existing) {
-    await candidateDb.upsertCandidateProfile(existing.id, { ...existing, resume_path: resumePath });
+  if (!existing) {
+    res.status(400).json({ error: "NO_PROFILE", message: "Create a candidate profile first, then upload a résumé." });
+    return;
   }
-  res.json({ ok: true, resume_path: resumePath });
+  await candidateDb.setResumeBlob(existing.id, req.file.buffer, req.file.originalname);
+  res.json({ ok: true, resume_filename: req.file.originalname });
 });

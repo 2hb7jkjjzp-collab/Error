@@ -32,6 +32,16 @@ provisions real cloud resources.
 - **Docker** — Multi-stage `Dockerfile` (Playwright/Chromium base image for API+worker), separate `apps/web/Dockerfile`, `docker-compose.yml` wiring Postgres + api + worker + web with a named volume for `storage/` (sessions/evidence/resume).
 - **Tests** — 21 `node:test` unit tests covering the state machine, professional pre-filter, candidate policy (Riyadh-strict, salary floor, missing-salary non-rejection), idempotent job fingerprinting, and the question classifier's "never fabricate a legal answer" rule. All passing.
 
+## Architecture correction made during this pass
+
+Résumé storage was redesigned before deployment: the API and worker run as
+separate Railway services with independent volumes, so a file written to
+the API service's local disk would never be visible to the worker's
+Playwright automation. Résumé bytes are now stored centrally in Postgres
+(`candidate_profiles.resume_data`, `migrations/003_resume_storage.sql`);
+`ApplicationAgent.materializeResume()` writes them to a local temp file only
+at the moment it needs to hand a path to the file input.
+
 ## Tests passed
 
 ```

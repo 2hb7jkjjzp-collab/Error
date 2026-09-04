@@ -35,7 +35,6 @@ services:
       STORAGE_DIR: /repo/storage
       SESSIONS_DIR: /repo/storage/sessions
       EVIDENCE_DIR: /repo/storage/evidence
-      RESUME_PATH: /repo/storage/resume/cv.pdf
     volumes:
       - meshal_storage:/repo/storage
     depends_on:
@@ -53,7 +52,6 @@ services:
       STORAGE_DIR: /repo/storage
       SESSIONS_DIR: /repo/storage/sessions
       EVIDENCE_DIR: /repo/storage/evidence
-      RESUME_PATH: /repo/storage/resume/cv.pdf
       SCHEDULER_ENABLED: "true"
       SCHEDULER_TIMEZONE: Asia/Riyadh
       PLAYWRIGHT_HEADLESS: "true"
