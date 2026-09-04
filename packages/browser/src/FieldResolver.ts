@@ -23,7 +23,7 @@ const FIELD_SIGNALS: FieldSignal[] = [
   { field: "linkedin_url", patterns: [/linkedin/i] },
   { field: "portfolio_url", patterns: [/portfolio/i, /website/i, /personal\s*site/i] },
   { field: "current_employer", patterns: [/current\s*employer/i, /current\s*company/i, /جهة\s*العمل/] },
-  { field: "current_role", patterns: [/current\s*(job\s*)?title/i, /current\s*position/i, /المسمى\s*الوظيفي/] },
+  { field: "current_job_title", patterns: [/current\s*(job\s*)?title/i, /current\s*position/i, /المسمى\s*الوظيفي/] },
   { field: "years_experience", patterns: [/years?\s*of\s*experience/i, /total\s*experience/i, /سنوات\s*الخبرة/] },
   {
     field: "expected_salary",

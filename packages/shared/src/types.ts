@@ -117,7 +117,7 @@ export interface CandidateProfile {
   linkedin_url?: string | null;
   portfolio_url?: string | null;
   current_employer?: string | null;
-  current_role?: string | null;
+  current_job_title?: string | null;
   years_experience: number;
   current_salary?: number | null;
   expected_salary?: number | null;

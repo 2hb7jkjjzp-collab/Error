@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS candidate_profiles (
   linkedin_url TEXT,
   portfolio_url TEXT,
   current_employer TEXT,
-  current_role TEXT,
+  current_job_title TEXT,
   years_experience NUMERIC,
   current_salary NUMERIC,
   expected_salary NUMERIC,

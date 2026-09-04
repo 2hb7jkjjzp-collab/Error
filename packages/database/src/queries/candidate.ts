@@ -4,7 +4,7 @@ import type { CandidateProfile, CandidateAnswer } from "@meshal/shared";
 const PROFILE_COLUMNS = `
   id, legal_name, first_name, middle_name, last_name, preferred_name, email, phone, nationality,
   date_of_birth, gender, address, city, country, postal_code, linkedin_url, portfolio_url,
-  current_employer, current_role, years_experience, current_salary, expected_salary, notice_period,
+  current_employer, current_job_title, years_experience, current_salary, expected_salary, notice_period,
   education, certifications, languages, skills, work_history, resume_path, resume_filename, updated_at, created_at
 `;
 
@@ -46,7 +46,7 @@ export async function upsertCandidateProfile(id: string | null, profile: Candida
       `UPDATE candidate_profiles SET
         legal_name=$2, first_name=$3, middle_name=$4, last_name=$5, preferred_name=$6, email=$7, phone=$8,
         nationality=$9, date_of_birth=$10, gender=$11, address=$12, city=$13, country=$14, postal_code=$15,
-        linkedin_url=$16, portfolio_url=$17, current_employer=$18, current_role=$19, years_experience=$20,
+        linkedin_url=$16, portfolio_url=$17, current_employer=$18, current_job_title=$19, years_experience=$20,
         current_salary=$21, expected_salary=$22, notice_period=$23, education=$24, certifications=$25,
         languages=$26, skills=$27, work_history=$28, resume_path=$29, updated_at=now()
        WHERE id=$1`,
@@ -69,7 +69,7 @@ export async function upsertCandidateProfile(id: string | null, profile: Candida
         profile.linkedin_url ?? null,
         profile.portfolio_url ?? null,
         profile.current_employer ?? null,
-        profile.current_role ?? null,
+        profile.current_job_title ?? null,
         profile.years_experience,
         profile.current_salary ?? null,
         profile.expected_salary ?? null,
@@ -88,7 +88,7 @@ export async function upsertCandidateProfile(id: string | null, profile: Candida
     `INSERT INTO candidate_profiles (
       legal_name, first_name, middle_name, last_name, preferred_name, email, phone, nationality,
       date_of_birth, gender, address, city, country, postal_code, linkedin_url, portfolio_url,
-      current_employer, current_role, years_experience, current_salary, expected_salary, notice_period,
+      current_employer, current_job_title, years_experience, current_salary, expected_salary, notice_period,
       education, certifications, languages, skills, work_history, resume_path
     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
     RETURNING id`,
@@ -110,7 +110,7 @@ export async function upsertCandidateProfile(id: string | null, profile: Candida
       profile.linkedin_url ?? null,
       profile.portfolio_url ?? null,
       profile.current_employer ?? null,
-      profile.current_role ?? null,
+      profile.current_job_title ?? null,
       profile.years_experience,
       profile.current_salary ?? null,
       profile.expected_salary ?? null,
