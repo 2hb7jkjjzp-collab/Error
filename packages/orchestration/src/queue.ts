@@ -118,14 +118,25 @@ export async function fail(
        WHERE id = $1`,
       [taskId, String(delay), JSON.stringify(error)]
     );
-    logger.warn("Task failed, retry scheduled", { event: "queue.retry_scheduled", task_id: taskId, delay_ms: delay });
+    logger.warn("Task failed, retry scheduled", {
+      event: "queue.retry_scheduled",
+      task_id: taskId,
+      delay_ms: delay,
+      error_code: error.code as string | undefined,
+      error_message: error.message as string | undefined,
+    });
     return "retry_scheduled";
   }
   await getPool().query(
     `UPDATE application_queue SET status = 'DEAD_LETTER', last_error = $2, updated_at = now() WHERE id = $1`,
     [taskId, JSON.stringify(error)]
   );
-  logger.error("Task moved to dead letter", { event: "queue.dead_letter", task_id: taskId });
+  logger.error("Task moved to dead letter", {
+    event: "queue.dead_letter",
+    task_id: taskId,
+    error_code: error.code as string | undefined,
+    error_message: error.message as string | undefined,
+  });
   return "dead_letter";
 }
 

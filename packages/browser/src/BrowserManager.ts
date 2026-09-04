@@ -12,9 +12,18 @@ export class BrowserManager {
 
   async launch(): Promise<Browser> {
     if (!this.browser) {
-      this.browser = await chromium.launch({
-        headless: process.env.PLAYWRIGHT_HEADLESS !== "false",
-      });
+      try {
+        this.browser = await chromium.launch({
+          headless: process.env.PLAYWRIGHT_HEADLESS !== "false",
+          // Required to run Chromium inside most containers (Railway included):
+          // the kernel syscalls Chromium's own sandbox needs are blocked by
+          // default for unprivileged containers, and /dev/shm is often too
+          // small for Chromium's default shared-memory usage.
+          args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+        });
+      } catch (err) {
+        throw new MeshalError(ErrorCode.ENGINEERING_ERROR, `Failed to launch Chromium: ${err}`);
+      }
     }
     return this.browser;
   }

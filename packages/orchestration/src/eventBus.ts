@@ -39,6 +39,7 @@ export async function emit(input: EmitEventInput): Promise<string> {
     application_id: input.application_id ?? undefined,
     event: input.event_type,
     error_code: (input.error as MeshalError)?.code,
+    error_message: input.error?.message,
   });
 
   return eventId;
