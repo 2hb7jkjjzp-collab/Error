@@ -1,5 +1,5 @@
 import type { Page } from "playwright";
-import { MeshalError, ErrorCode, type ATSType } from "@meshal/shared";
+import { MeshalError, ErrorCode, logger, type ATSType } from "@meshal/shared";
 import { classifyField, valueForField, resolveAnswer } from "@meshal/browser";
 import type { ATSConnector, ApplicationContext, StepResult, SubmissionSignals } from "../ConnectorContract.js";
 
@@ -91,6 +91,29 @@ export class LeverConnector implements ATSConnector {
     await input.click({ clickCount: 3 }).catch(() => undefined);
     await input.fill("").catch(() => undefined);
     await input.type(value, { delay: 60 });
+    const valueAfterTyping = await input.evaluate((el) => (el as HTMLInputElement).value).catch(() => null);
+
+    // Give the widget's (usually network-backed) suggestion lookup time to
+    // respond before looking for a suggestion list.
+    await page.waitForTimeout(800);
+
+    const candidateSelectors = [
+      "[role='listbox'] [role='option']",
+      ".pac-container .pac-item",
+      ".dropdown-menu li",
+      "[data-qa='location-suggestion']",
+      "[class*='suggestion' i]",
+      "[class*='autocomplete' i] li",
+      "ul[class*='dropdown' i] li",
+    ];
+    const suggestionCounts: Record<string, number> = {};
+    for (const sel of candidateSelectors) {
+      suggestionCounts[sel] = await page.locator(sel).count().catch(() => -1);
+    }
+    const wrapperHtml = await input
+      .evaluateHandle((el) => (el as HTMLElement).closest("div")?.parentElement ?? el.parentElement)
+      .then((h) => h.evaluate((el) => (el as HTMLElement | null)?.outerHTML?.slice(0, 1500) ?? null))
+      .catch(() => null);
 
     const suggestion = page
       .locator(
@@ -103,16 +126,35 @@ export class LeverConnector implements ATSConnector {
       )
       .first();
 
+    let selectionMethod = "none";
     try {
-      await suggestion.waitFor({ state: "visible", timeout: 3_000 });
+      await suggestion.waitFor({ state: "visible", timeout: 2_000 });
       await suggestion.click();
+      selectionMethod = "suggestion_click";
     } catch {
       // No suggestion list appeared (or a different widget entirely) —
       // fall back to keyboard selection in case the listbox is present but
       // not matched by the selectors above.
       await page.keyboard.press("ArrowDown").catch(() => undefined);
       await page.keyboard.press("Enter").catch(() => undefined);
+      selectionMethod = "keyboard_fallback";
     }
+
+    const valueAfterSelection = await input.evaluate((el) => (el as HTMLInputElement).value).catch(() => null);
+
+    // Diagnostic-only: this field has repeatedly ended up empty by
+    // validateStep() despite this method running without throwing. Log a
+    // full snapshot so the actual widget behavior (does typing register at
+    // all? does a suggestion list ever appear under any of the candidate
+    // selectors? does the value get reverted after selection?) is visible
+    // in server logs directly, instead of guessing at another fix blind.
+    logger.warn("lever_location_autocomplete_debug", {
+      value_after_typing: valueAfterTyping,
+      value_after_selection: valueAfterSelection,
+      selection_method: selectionMethod,
+      suggestion_counts: JSON.stringify(suggestionCounts),
+      wrapper_html: wrapperHtml ? String(wrapperHtml) : null,
+    });
   }
 
   private async findLabelText(page: Page, input: import("playwright").ElementHandle): Promise<string | null> {
