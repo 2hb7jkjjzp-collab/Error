@@ -91,69 +91,44 @@ export class LeverConnector implements ATSConnector {
     await input.click({ clickCount: 3 }).catch(() => undefined);
     await input.fill("").catch(() => undefined);
     await input.type(value, { delay: 60 });
-    const valueAfterTyping = await input.evaluate((el) => (el as HTMLInputElement).value).catch(() => null);
 
-    // Give the widget's (usually network-backed) suggestion lookup time to
-    // respond before looking for a suggestion list.
-    await page.waitForTimeout(800);
-
-    const candidateSelectors = [
-      "[role='listbox'] [role='option']",
-      ".pac-container .pac-item",
-      ".dropdown-menu li",
-      "[data-qa='location-suggestion']",
-      "[class*='suggestion' i]",
-      "[class*='autocomplete' i] li",
-      "ul[class*='dropdown' i] li",
-    ];
-    const suggestionCounts: Record<string, number> = {};
-    for (const sel of candidateSelectors) {
-      suggestionCounts[sel] = await page.locator(sel).count().catch(() => -1);
-    }
-    const wrapperHtml = await input
-      .evaluateHandle((el) => (el as HTMLElement).closest("div")?.parentElement ?? el.parentElement)
-      .then((h) => h.evaluate((el) => (el as HTMLElement | null)?.outerHTML?.slice(0, 1500) ?? null))
-      .catch(() => null);
-
+    // Lever's own location widget renders its suggestion list as plain
+    // divs (confirmed from a captured DOM snapshot):
+    //   <div class="dropdown-results ...">
+    //     <div class="dropdown-location ..." id="location-0">Riyadh, SAU</div>
+    //     ...
+    //   </div>
+    // Generic listbox/pac-container/dropdown-menu selectors never match
+    // this, and a keyboard ArrowDown+Enter fallback actively clears the
+    // field (the component only commits a value via a real click on one
+    // of these divs) — so this needs a real click on the first result,
+    // with a couple of widely-used autocomplete patterns kept as a
+    // fallback for other tenants/ATS variants.
     const suggestion = page
       .locator(
         [
+          ".dropdown-results .dropdown-location",
           "[role='listbox'] [role='option']",
           ".pac-container .pac-item",
-          ".dropdown-menu li",
           "[data-qa='location-suggestion']",
         ].join(", ")
       )
       .first();
 
-    let selectionMethod = "none";
+    let selected = false;
     try {
-      await suggestion.waitFor({ state: "visible", timeout: 2_000 });
+      await suggestion.waitFor({ state: "visible", timeout: 5_000 });
       await suggestion.click();
-      selectionMethod = "suggestion_click";
+      selected = true;
     } catch {
-      // No suggestion list appeared (or a different widget entirely) —
-      // fall back to keyboard selection in case the listbox is present but
-      // not matched by the selectors above.
-      await page.keyboard.press("ArrowDown").catch(() => undefined);
-      await page.keyboard.press("Enter").catch(() => undefined);
-      selectionMethod = "keyboard_fallback";
+      selected = false;
     }
 
-    const valueAfterSelection = await input.evaluate((el) => (el as HTMLInputElement).value).catch(() => null);
-
-    // Diagnostic-only: this field has repeatedly ended up empty by
-    // validateStep() despite this method running without throwing. Log a
-    // full snapshot so the actual widget behavior (does typing register at
-    // all? does a suggestion list ever appear under any of the candidate
-    // selectors? does the value get reverted after selection?) is visible
-    // in server logs directly, instead of guessing at another fix blind.
-    logger.warn("lever_location_autocomplete_debug", {
-      value_after_typing: valueAfterTyping,
-      value_after_selection: valueAfterSelection,
-      selection_method: selectionMethod,
-      suggestion_counts: JSON.stringify(suggestionCounts),
-      wrapper_html: wrapperHtml ? String(wrapperHtml) : null,
+    const finalValue = await input.evaluate((el) => (el as HTMLInputElement).value).catch(() => "");
+    logger.warn("lever_location_autocomplete_result", {
+      typed_value: value,
+      suggestion_clicked: selected,
+      final_value: finalValue,
     });
   }
 
