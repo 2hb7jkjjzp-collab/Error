@@ -61,6 +61,8 @@ export class LeverConnector implements ATSConnector {
         const tag = await input.evaluate((el) => el.tagName.toLowerCase());
         if (tag === "select") {
           await input.selectOption({ label: value }).catch(() => input.selectOption(value).catch(() => undefined));
+        } else if (field === "city") {
+          await this.fillLocationAutocomplete(page, input, value);
         } else {
           await input.fill(value);
         }
@@ -70,6 +72,47 @@ export class LeverConnector implements ATSConnector {
       }
     }
     return { ok: true, step: "fillKnownFields", fieldsCompleted: completed };
+  }
+
+  /**
+   * Lever's "Current location" field is a Google Places-style autocomplete:
+   * a plain fill() sets the text but never fires the real keystroke events
+   * the widget listens for, so it never resolves a suggestion and Lever's
+   * own validation still treats it as unset ("No location found"). Type it
+   * as real keystrokes instead and accept the first suggestion that
+   * appears; if no suggestion list shows up, the typed text is left as-is
+   * (still better than an empty field).
+   */
+  private async fillLocationAutocomplete(
+    page: Page,
+    input: import("playwright").ElementHandle,
+    value: string
+  ): Promise<void> {
+    await input.click({ clickCount: 3 }).catch(() => undefined);
+    await input.fill("").catch(() => undefined);
+    await input.type(value, { delay: 60 });
+
+    const suggestion = page
+      .locator(
+        [
+          "[role='listbox'] [role='option']",
+          ".pac-container .pac-item",
+          ".dropdown-menu li",
+          "[data-qa='location-suggestion']",
+        ].join(", ")
+      )
+      .first();
+
+    try {
+      await suggestion.waitFor({ state: "visible", timeout: 3_000 });
+      await suggestion.click();
+    } catch {
+      // No suggestion list appeared (or a different widget entirely) —
+      // fall back to keyboard selection in case the listbox is present but
+      // not matched by the selectors above.
+      await page.keyboard.press("ArrowDown").catch(() => undefined);
+      await page.keyboard.press("Enter").catch(() => undefined);
+    }
   }
 
   private async findLabelText(page: Page, input: import("playwright").ElementHandle): Promise<string | null> {

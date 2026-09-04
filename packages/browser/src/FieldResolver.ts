@@ -18,7 +18,7 @@ const FIELD_SIGNALS: FieldSignal[] = [
   { field: "full_name", patterns: [/full\s*name/i, /^name$/i, /الاسم\s*الكامل/] },
   { field: "email", patterns: [/e-?mail/i, /البريد\s*الإلكتروني/] },
   { field: "phone", patterns: [/phone/i, /mobile/i, /contact\s*number/i, /رقم\s*الجوال/, /الهاتف/] },
-  { field: "city", patterns: [/^city$/i, /current\s*city/i, /المدينة/] },
+  { field: "city", patterns: [/^city$/i, /current\s*city/i, /^location$/i, /current\s*location/i, /المدينة/] },
   { field: "country", patterns: [/^country$/i, /الدولة/] },
   { field: "linkedin_url", patterns: [/linkedin/i] },
   { field: "portfolio_url", patterns: [/portfolio/i, /website/i, /personal\s*site/i] },
