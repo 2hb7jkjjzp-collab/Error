@@ -299,6 +299,25 @@ export class LeverConnector implements ATSConnector {
   }
 
   async submit(page: Page): Promise<StepResult> {
+    // This posting's form has an hCaptcha widget sitting over the submit
+    // button (confirmed from a captured Playwright action log: the click
+    // kept timing out because "<iframe ... hCaptcha ...> intercepts pointer
+    // events"). hCaptcha exists specifically to block automated/bot
+    // submissions — solving or bypassing it is not something this connector
+    // attempts. Detect it up front and hand the job back to the candidate
+    // instead of burning retries against a wall that will never open.
+    const hasCaptcha = await page
+      .locator("iframe[title*='hCaptcha' i], .h-captcha, iframe[src*='hcaptcha.com'], .g-recaptcha, iframe[src*='recaptcha']")
+      .count()
+      .then((n) => n > 0)
+      .catch(() => false);
+    if (hasCaptcha) {
+      throw new MeshalError(
+        ErrorCode.HUMAN_VERIFICATION_REQUIRED,
+        `This posting requires solving a CAPTCHA challenge before submitting, which cannot be completed automatically. Open the job link and submit it yourself: ${page.url()}`
+      );
+    }
+
     // page.$() (and Playwright's plain querySelector-style lookups) return
     // the FIRST DOM match regardless of visibility — Lever's apply form has
     // more than one button[type="submit"] in the DOM (this connector's own
