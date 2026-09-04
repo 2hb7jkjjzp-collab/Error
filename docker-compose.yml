@@ -61,17 +61,6 @@ services:
       postgres:
         condition: service_healthy
 
-  web:
-    build:
-      context: ./apps/web
-      dockerfile: Dockerfile
-    ports:
-      - "4173:4173"
-    environment:
-      API_PROXY_TARGET: http://api:3000
-    depends_on:
-      - api
-
 volumes:
   meshal_pg_data:
   meshal_storage:

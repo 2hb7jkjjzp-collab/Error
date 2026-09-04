@@ -53,8 +53,9 @@ cp .env.example .env        # fill in DASHBOARD_PASSWORD / JWT_SECRET / SESSION_
 docker compose up --build
 ```
 
-- API: http://localhost:3000 (health at `/healthz`)
-- Dashboard: http://localhost:4173
+- API + Dashboard: http://localhost:3000 (health at `/healthz`). The API
+  service serves the built dashboard directly from the same origin, so no
+  reverse proxy is needed in production.
 - Worker runs discovery/verification/matching/application/submission-verification/tracking continuously.
 
 Without Docker:

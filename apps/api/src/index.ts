@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { runMigrations } from "@meshal/database";
 import { logger } from "@meshal/shared";
 import { healthRouter } from "./routes/health.js";
@@ -39,6 +41,18 @@ async function main() {
   app.use("/api", requireAuth, profileRouter);
   app.use("/api", requireAuth, resumeRouter);
   app.use("/api", requireAuth, settingsRouter);
+
+  // Serve the built dashboard from the same origin as the API. This avoids
+  // needing a reverse proxy in production: the dashboard's relative /api
+  // fetches land directly on this server. apps/web/dist is produced by
+  // `npm run build` (root) and present in the Docker runtime image.
+  const webDistPath = resolve(process.cwd(), "apps/web/dist");
+  if (existsSync(webDistPath)) {
+    app.use(express.static(webDistPath));
+    app.get(/^(?!\/api).*/, (_req, res) => {
+      res.sendFile(join(webDistPath, "index.html"));
+    });
+  }
 
   app.use((_req, res) => {
     res.status(404).json({ error: "NOT_FOUND" });
