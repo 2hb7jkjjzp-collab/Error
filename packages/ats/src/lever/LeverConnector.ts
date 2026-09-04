@@ -120,7 +120,8 @@ export class LeverConnector implements ATSConnector {
       .first();
 
     let selected = false;
-    for (let attempt = 0; attempt < 3 && !selected; attempt++) {
+    const attemptLog: Array<{ attempt: number; result_count: number; no_results_shown: boolean; outcome: string }> = [];
+    for (let attempt = 0; attempt < 4 && !selected; attempt++) {
       if (attempt > 0) {
         // Re-trigger the debounced lookup: remove and retype the last
         // character rather than retyping the whole value (avoids
@@ -130,10 +131,17 @@ export class LeverConnector implements ATSConnector {
         await input.type(value.slice(-1), { delay: 60 }).catch(() => undefined);
       }
       try {
-        await suggestion.waitFor({ state: "visible", timeout: 4_000 });
+        await suggestion.waitFor({ state: "visible", timeout: 6_000 });
         await suggestion.click();
         selected = true;
+        attemptLog.push({ attempt, result_count: 1, no_results_shown: false, outcome: "clicked" });
       } catch {
+        const resultCount = await page.locator(".dropdown-results .dropdown-location").count().catch(() => -1);
+        const noResultsShown = await page
+          .locator(".dropdown-no-results")
+          .evaluate((el) => (el as HTMLElement).style.display !== "none")
+          .catch(() => false);
+        attemptLog.push({ attempt, result_count: resultCount, no_results_shown: noResultsShown, outcome: "timeout" });
         selected = false;
       }
     }
@@ -143,6 +151,7 @@ export class LeverConnector implements ATSConnector {
       typed_value: value,
       suggestion_clicked: selected,
       final_value: finalValue,
+      attempts: JSON.stringify(attemptLog),
     });
   }
 
