@@ -11,7 +11,7 @@
   "dependencies": {
     "@meshal/shared": "*",
     "@meshal/browser": "*",
-    "playwright": "^1.48.2"
+    "playwright": "1.48.2"
   },
   "devDependencies": {
     "typescript": "^5.6.3"
