@@ -103,7 +103,11 @@ export class LeverConnector implements ATSConnector {
     // field (the component only commits a value via a real click on one
     // of these divs) — so this needs a real click on the first result,
     // with a couple of widely-used autocomplete patterns kept as a
-    // fallback for other tenants/ATS variants.
+    // fallback for other tenants/ATS variants. The suggestion lookup is
+    // network-backed and occasionally doesn't respond within a single
+    // wait window, so retry a few times, re-nudging the input (which
+    // re-triggers the widget's debounced lookup) between attempts rather
+    // than giving up after one timeout.
     const suggestion = page
       .locator(
         [
@@ -116,12 +120,22 @@ export class LeverConnector implements ATSConnector {
       .first();
 
     let selected = false;
-    try {
-      await suggestion.waitFor({ state: "visible", timeout: 5_000 });
-      await suggestion.click();
-      selected = true;
-    } catch {
-      selected = false;
+    for (let attempt = 0; attempt < 3 && !selected; attempt++) {
+      if (attempt > 0) {
+        // Re-trigger the debounced lookup: remove and retype the last
+        // character rather than retyping the whole value (avoids
+        // re-collapsing an already-open dropdown via the triple-click/clear
+        // path).
+        await input.press("Backspace").catch(() => undefined);
+        await input.type(value.slice(-1), { delay: 60 }).catch(() => undefined);
+      }
+      try {
+        await suggestion.waitFor({ state: "visible", timeout: 4_000 });
+        await suggestion.click();
+        selected = true;
+      } catch {
+        selected = false;
+      }
     }
 
     const finalValue = await input.evaluate((el) => (el as HTMLInputElement).value).catch(() => "");
