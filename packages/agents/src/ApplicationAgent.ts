@@ -54,8 +54,16 @@ export class ApplicationAgent extends BaseAgent {
       application_url: applicationUrl,
     });
 
-    await transitionJobState(job.job_id, JobState.QUEUED_FOR_APPLICATION, this.name, runId);
-    await transitionJobState(job.job_id, JobState.APPLYING, this.name, runId);
+    // A retry (after NEEDS_ACTION/dead-letter, or a crash mid-attempt that
+    // left the job at APPLYING) can start from a state other than MATCHED —
+    // only walk through QUEUED_FOR_APPLICATION when starting fresh from
+    // MATCHED, and skip the APPLYING transition entirely if already there.
+    if (job.status === JobState.MATCHED) {
+      await transitionJobState(job.job_id, JobState.QUEUED_FOR_APPLICATION, this.name, runId);
+      await transitionJobState(job.job_id, JobState.APPLYING, this.name, runId);
+    } else if (job.status !== JobState.APPLYING) {
+      await transitionJobState(job.job_id, JobState.APPLYING, this.name, runId);
+    }
     await applicationsDb.updateApplication(applicationId, { status: JobState.APPLYING, started_at: new Date().toISOString() });
 
     const ctx: ApplicationContext = {

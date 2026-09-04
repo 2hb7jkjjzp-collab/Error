@@ -36,7 +36,7 @@ export default function ApplicationDetail() {
         <p>الحالة: {data.status}</p>
         {data.blocker && <p style={{ color: "#b91c1c" }}>العائق: {data.blocker.message ?? data.blocker.code}</p>}
         {data.confirmation_url && <p><a href={data.confirmation_url} target="_blank" rel="noreferrer">رابط التأكيد</a></p>}
-        {data.status === "NEEDS_ACTION" && (
+        {data.status !== "SUBMITTED" && (
           <button onClick={retry} disabled={retrying}>{retrying ? "جارٍ إعادة المحاولة..." : "إعادة المحاولة"}</button>
         )}
       </div>
