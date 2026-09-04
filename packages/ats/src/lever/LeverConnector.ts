@@ -114,6 +114,20 @@ export class LeverConnector implements ATSConnector {
       const type = await input.getAttribute("type");
       if (type === "file") continue;
 
+      // fillKnownFields() already ran and fills standard profile fields
+      // (name, email, phone, location, LinkedIn, ...) by matching the same
+      // DOM elements via FieldResolver. Lever wraps those in the same
+      // .application-question containers as its custom questions, so
+      // without this check every already-filled standard field gets
+      // re-processed here, doesn't match any stored Q&A pattern, and is
+      // wrongly reported as an unanswered "question".
+      const currentValue = await input.evaluate((el) => (el as HTMLInputElement).value).catch(() => "");
+      if (currentValue && currentValue.trim().length > 0) continue;
+      if (type === "checkbox" || type === "radio") {
+        const isChecked = await input.evaluate((el) => (el as HTMLInputElement).checked).catch(() => false);
+        if (isChecked) continue;
+      }
+
       const required = (await fieldset.evaluate((el) => el.querySelector("[required]") != null)) as boolean;
       const resolved = resolveAnswer(questionText, required, ctx.knownAnswers);
 
