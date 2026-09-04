@@ -10,6 +10,8 @@ export default function ApplicationDetail() {
   const { id } = useParams();
   const [data, setData] = useState<any>(null);
   const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const [retryOk, setRetryOk] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [savingAnswer, setSavingAnswer] = useState<string | null>(null);
   const [savedQuestions, setSavedQuestions] = useState<Set<string>>(new Set());
@@ -25,9 +27,14 @@ export default function ApplicationDetail() {
 
   async function retry() {
     setRetrying(true);
+    setRetryError(null);
+    setRetryOk(false);
     try {
       await apiFetch(`/applications/${id}/retry`, { method: "POST" });
+      setRetryOk(true);
       await load();
+    } catch (err) {
+      setRetryError(err instanceof Error ? err.message : String(err));
     } finally {
       setRetrying(false);
     }
@@ -68,9 +75,11 @@ export default function ApplicationDetail() {
         {data.status !== "SUBMITTED" && (
           <button onClick={retry} disabled={retrying}>{retrying ? "جارٍ إعادة المحاولة..." : "إعادة المحاولة"}</button>
         )}
+        {retryError && <p style={{ color: "#b91c1c" }}>فشلت إعادة المحاولة: {retryError}</p>}
+        {retryOk && <p style={{ color: "#15803d" }}>تم إرسال طلب إعادة المحاولة — يبدأ خلال ثوانٍ.</p>}
       </div>
 
-      {data.unanswered_fields?.length > 0 && (
+      {data.unanswered_fields?.length > 0 && data.blocker?.step === "answerQuestions" && (
         <div className="card">
           <h2>أسئلة تحتاج إجابتك</h2>
           <p className="muted">
