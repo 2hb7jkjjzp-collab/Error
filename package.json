@@ -1,0 +1,29 @@
+{
+  "name": "meshal-job-autopilot",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Autonomous job-search and job-application platform",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.json && npm run build --workspace=@meshal/web",
+    "build:clean": "tsc -b tsconfig.json --clean",
+    "migrate": "npm run migrate --workspace=@meshal/database",
+    "test": "node --import tsx --test tests/**/*.test.ts",
+    "dev:api": "npm run dev --workspace=@meshal/api",
+    "dev:worker": "npm run dev --workspace=@meshal/worker",
+    "dev:web": "npm run dev --workspace=@meshal/web",
+    "start:api": "npm run start --workspace=@meshal/api",
+    "start:worker": "npm run start --workspace=@meshal/worker"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "tsx": "^4.19.2",
+    "@types/node": "^22.9.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

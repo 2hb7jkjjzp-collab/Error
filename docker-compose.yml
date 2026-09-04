@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: meshal
+    ports:
+      - "5432:5432"
+    volumes:
+      - meshal_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["node", "apps/api/dist/index.js"]
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/meshal
+      PORT: 3000
+      JWT_SECRET: dev-secret-change-me
+      DASHBOARD_USERNAME: admin
+      DASHBOARD_PASSWORD: change-me
+      SESSION_ENCRYPTION_KEY: dev-session-key-change-me
+      STORAGE_DIR: /repo/storage
+      SESSIONS_DIR: /repo/storage/sessions
+      EVIDENCE_DIR: /repo/storage/evidence
+      RESUME_PATH: /repo/storage/resume/cv.pdf
+    volumes:
+      - meshal_storage:/repo/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["node", "apps/worker/dist/index.js"]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/meshal
+      SESSION_ENCRYPTION_KEY: dev-session-key-change-me
+      STORAGE_DIR: /repo/storage
+      SESSIONS_DIR: /repo/storage/sessions
+      EVIDENCE_DIR: /repo/storage/evidence
+      RESUME_PATH: /repo/storage/resume/cv.pdf
+      SCHEDULER_ENABLED: "true"
+      SCHEDULER_TIMEZONE: Asia/Riyadh
+      PLAYWRIGHT_HEADLESS: "true"
+    volumes:
+      - meshal_storage:/repo/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "4173:4173"
+    environment:
+      API_PROXY_TARGET: http://api:3000
+    depends_on:
+      - api
+
+volumes:
+  meshal_pg_data:
+  meshal_storage:

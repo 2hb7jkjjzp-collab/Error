@@ -1,0 +1,43 @@
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+  background: #f4f5f7;
+  color: #1c2430;
+  direction: rtl;
+}
+.app-shell { display: flex; flex-direction: column; min-height: 100vh; }
+.topbar {
+  background: #0f172a; color: #fff; padding: 14px 18px;
+  display: flex; justify-content: space-between; align-items: center;
+  position: sticky; top: 0; z-index: 10;
+}
+.topbar h1 { font-size: 18px; margin: 0; }
+.content { flex: 1; padding: 14px; max-width: 720px; margin: 0 auto; width: 100%; }
+.bottom-nav {
+  position: sticky; bottom: 0; background: #fff; border-top: 1px solid #e2e5ea;
+  display: flex; justify-content: space-around; padding: 8px 0;
+}
+.bottom-nav a { color: #64748b; text-decoration: none; font-size: 12px; text-align: center; flex: 1; }
+.bottom-nav a.active { color: #2563eb; font-weight: 600; }
+.card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stat-tile { background: #fff; border-radius: 12px; padding: 12px; text-align: center; }
+.stat-tile .value { font-size: 22px; font-weight: 700; color: #1e293b; }
+.stat-tile .label { font-size: 12px; color: #64748b; margin-top: 4px; }
+.job-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eef0f3; }
+.job-row:last-child { border-bottom: none; }
+.badge { font-size: 11px; padding: 3px 8px; border-radius: 999px; }
+.badge.submitted { background: #dcfce7; color: #15803d; }
+.badge.pending { background: #fef9c3; color: #854d0e; }
+.badge.needs_action { background: #fee2e2; color: #b91c1c; }
+.badge.default { background: #e2e8f0; color: #475569; }
+input, button { font-family: inherit; font-size: 14px; }
+input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 10px; }
+button { background: #2563eb; color: #fff; border: none; border-radius: 8px; padding: 10px 16px; cursor: pointer; width: 100%; }
+button.secondary { background: #e2e8f0; color: #1e293b; }
+.login-box { max-width: 360px; margin: 60px auto; }
+.timeline-item { border-right: 2px solid #cbd5e1; padding-right: 12px; margin-bottom: 14px; position: relative; }
+.timeline-item::before { content: ""; position: absolute; right: -6px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: #2563eb; }
+.muted { color: #64748b; font-size: 13px; }
+h2 { font-size: 16px; margin: 0 0 10px; }

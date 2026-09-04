@@ -1,0 +1,20 @@
+{
+  "name": "@meshal/worker",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@meshal/shared": "*",
+    "@meshal/database": "*",
+    "@meshal/orchestration": "*",
+    "@meshal/agents": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@meshal/agents",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch"
+  },
+  "dependencies": {
+    "@meshal/shared": "*",
+    "@meshal/database": "*",
+    "@meshal/orchestration": "*",
+    "@meshal/matching": "*",
+    "@meshal/browser": "*",
+    "@meshal/ats": "*",
+    "@meshal/email": "*",
+    "playwright": "^1.48.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

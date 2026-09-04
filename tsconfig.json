@@ -1,0 +1,15 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/database" },
+    { "path": "packages/orchestration" },
+    { "path": "packages/matching" },
+    { "path": "packages/browser" },
+    { "path": "packages/ats" },
+    { "path": "packages/email" },
+    { "path": "packages/agents" },
+    { "path": "apps/api" },
+    { "path": "apps/worker" }
+  ]
+}
