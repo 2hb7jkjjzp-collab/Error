@@ -207,18 +207,29 @@ export class LeverConnector implements ATSConnector {
   }
 
   async validateStep(page: Page): Promise<StepResult> {
+    // Identify WHICH fields are still empty (name/id/placeholder/nearby
+    // label text), not just a count — a bare count gives no way to tell
+    // which widget still needs handling (e.g. an autocomplete that never
+    // resolved a suggestion vs. a genuinely unanswered custom field).
     const stillRequired = await page.$$eval("[required]", (els) =>
-      els.filter((el) => {
-        const input = el as HTMLInputElement;
-        return !input.value && input.type !== "file";
-      }).length
+      els
+        .filter((el) => {
+          const input = el as HTMLInputElement;
+          return !input.value && input.type !== "file";
+        })
+        .map((el) => {
+          const input = el as HTMLInputElement;
+          const label = input.id ? document.querySelector(`label[for="${input.id}"]`)?.textContent?.trim() : null;
+          return label || input.getAttribute("aria-label") || input.getAttribute("placeholder") || input.name || input.id || "(unlabeled field)";
+        })
     );
-    if (stillRequired > 0) {
+    if (stillRequired.length > 0) {
       return {
         ok: false,
         step: "validateStep",
+        unansweredFields: stillRequired,
         errorCode: ErrorCode.REQUIRED_UNKNOWN_FIELD,
-        errorMessage: `${stillRequired} required field(s) still empty.`,
+        errorMessage: `${stillRequired.length} required field(s) still empty: ${stillRequired.join(", ")}`,
       };
     }
     return { ok: true, step: "validateStep" };
