@@ -145,6 +145,7 @@ export class LeverConnector implements ATSConnector {
 
   async answerQuestions(page: Page, ctx: ApplicationContext): Promise<StepResult> {
     const unanswered: string[] = [];
+    const unansweredDetails: Array<{ question: string; outerHtml: string }> = [];
     const fieldsets = await page.$$(".application-question, [data-qa='application-question']");
     const targets = fieldsets.length > 0 ? fieldsets : await page.$$("fieldset");
 
@@ -176,6 +177,7 @@ export class LeverConnector implements ATSConnector {
 
       if (!resolved.canAutoAnswer) {
         unanswered.push(questionText);
+        unansweredDetails.push({ question: questionText, outerHtml: (await fieldset.evaluate((el) => el.outerHTML)).slice(0, 500) });
         continue;
       }
       if (resolved.answer == null) continue;
@@ -191,6 +193,7 @@ export class LeverConnector implements ATSConnector {
         }
       } catch {
         unanswered.push(questionText);
+        unansweredDetails.push({ question: questionText, outerHtml: (await fieldset.evaluate((el) => el.outerHTML)).slice(0, 500) });
       }
     }
 
@@ -201,6 +204,7 @@ export class LeverConnector implements ATSConnector {
         unansweredFields: unanswered,
         errorCode: ErrorCode.REQUIRED_UNKNOWN_FIELD,
         errorMessage: `${unanswered.length} required question(s) could not be auto-answered.`,
+        details: { unanswered: unansweredDetails },
       };
     }
     return { ok: true, step: "answerQuestions" };
@@ -210,7 +214,11 @@ export class LeverConnector implements ATSConnector {
     // Identify WHICH fields are still empty (name/id/placeholder/nearby
     // label text), not just a count — a bare count gives no way to tell
     // which widget still needs handling (e.g. an autocomplete that never
-    // resolved a suggestion vs. a genuinely unanswered custom field).
+    // resolved a suggestion vs. a genuinely unanswered custom field). Also
+    // capture a trimmed outerHTML snapshot of each one so the actual DOM
+    // structure (hidden companion inputs, widget classes, data attributes)
+    // is visible in server logs without needing a live screenshot from the
+    // person testing the flow.
     const stillRequired = await page.$$eval("[required]", (els) =>
       els
         .filter((el) => {
@@ -220,16 +228,26 @@ export class LeverConnector implements ATSConnector {
         .map((el) => {
           const input = el as HTMLInputElement;
           const label = input.id ? document.querySelector(`label[for="${input.id}"]`)?.textContent?.trim() : null;
-          return label || input.getAttribute("aria-label") || input.getAttribute("placeholder") || input.name || input.id || "(unlabeled field)";
+          return {
+            label: label || input.getAttribute("aria-label") || input.getAttribute("placeholder") || input.name || input.id || "(unlabeled field)",
+            tag: el.tagName.toLowerCase(),
+            type: input.type ?? null,
+            id: input.id ?? null,
+            name: input.name ?? null,
+            className: (el as HTMLElement).className || null,
+            outerHtml: (el.outerHTML || "").slice(0, 500),
+          };
         })
     );
     if (stillRequired.length > 0) {
+      const labels = stillRequired.map((f) => f.label);
       return {
         ok: false,
         step: "validateStep",
-        unansweredFields: stillRequired,
+        unansweredFields: labels,
         errorCode: ErrorCode.REQUIRED_UNKNOWN_FIELD,
-        errorMessage: `${stillRequired.length} required field(s) still empty: ${stillRequired.join(", ")}`,
+        errorMessage: `${stillRequired.length} required field(s) still empty: ${labels.join(", ")}`,
+        details: { fields: stillRequired },
       };
     }
     return { ok: true, step: "validateStep" };

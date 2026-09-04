@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { jobsDb, applicationsDb, candidateDb } from "@meshal/database";
-import { JobState, QueueName, ErrorCode, MeshalError } from "@meshal/shared";
+import { JobState, QueueName, ErrorCode, MeshalError, logger } from "@meshal/shared";
 import { transitionJobState } from "@meshal/orchestration";
 import type { AgentOutcome, DequeuedTask } from "@meshal/orchestration";
 import { BrowserManager, SessionManager } from "@meshal/browser";
@@ -103,6 +103,34 @@ export class ApplicationAgent extends BaseAgent {
         });
         if (!result.ok) {
           const code = (result.errorCode as string) ?? ErrorCode.ENGINEERING_ERROR;
+
+          // Capture a screenshot + the raw DOM of the blocking field(s) at
+          // the moment of failure. Without this, diagnosing a stuck ATS
+          // widget (e.g. an autocomplete that silently rejects a
+          // programmatic fill) requires relying on a live screenshot from
+          // whoever is testing the flow — this makes the failure
+          // self-diagnosable from server logs alone.
+          let failureScreenshotPath: string | null = null;
+          try {
+            const evidenceDir = join(process.env.EVIDENCE_DIR ?? "./storage/evidence", applicationId);
+            mkdirSync(evidenceDir, { recursive: true });
+            failureScreenshotPath = join(evidenceDir, `blocked-${result.step}.png`);
+            await this.browserManager.screenshot(page, failureScreenshotPath);
+          } catch {
+            failureScreenshotPath = null;
+          }
+          logger.warn("application_step_blocked", {
+            run_id: runId,
+            agent: this.name,
+            job_id: job.job_id,
+            application_id: applicationId,
+            step: result.step,
+            error_code: code,
+            unanswered_fields: result.unansweredFields,
+            details: result.details ? JSON.stringify(result.details).slice(0, 4000) : undefined,
+            screenshot_path: failureScreenshotPath,
+          });
+
           await applicationsDb.updateApplication(applicationId, {
             status: JobState.NEEDS_ACTION,
             unanswered_fields: result.unansweredFields ?? [],
